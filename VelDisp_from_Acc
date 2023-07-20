@@ -1,0 +1,113 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from eqsig.single import AccSignal
+import os
+
+
+#User Input Values
+record_path = "Data"  #Folder on current directory
+record_filename = 'Input.txt'
+motion_step = 0.005
+rec = np.loadtxt(os.path.join(os.getcwd(), record_path , record_filename), skiprows=0, delimiter=",", dtype="str")
+
+
+os.chdir(record_path)
+def Data_Refinery():
+    import re
+
+    def extract_numbers(string):
+        pattern = r'-?\d+(?:\.\d+)?(?:E-?\d+)?'  # Regular expression pattern to match decimal numbers and scientific notation
+        numbers = re.findall(pattern, string)
+        return [numbers[0]]
+
+
+    dataset = []
+    for index, items in enumerate(rec):
+        if index == 0:
+            dataset = extract_numbers(items)
+        else:
+            dataset += extract_numbers(items)
+
+    dataset = [float(x) for x in dataset]
+    dataset = np.array(dataset)
+
+    return dataset
+
+
+from obspy import read
+def extract_xyz_ground_motion(file_path, num_digits=10, num_components_per_row=8):
+    with open(file_path, 'r') as file:
+        data_text = file.read()
+
+    # Determine the number of data points per component (X, Y, Z)
+    num_points_per_component = len(data_text) // (num_digits * num_components_per_row)
+
+    # Initialize arrays for X, Y, and Z data
+    x_data = []
+    y_data = []
+    z_data = []
+
+    # Loop through the data_text and extract values for X, Y, and Z components
+    for index, i in enumerate(range(num_points_per_component)):
+        row_start = i * num_digits * num_components_per_row
+        components = []
+        for index1, j in enumerate(range(num_components_per_row)):
+            if index > 0 and index1 == 0:
+                components.append(float(data_text[row_start + j * num_digits +1: row_start + (j + 1) * num_digits + 1]))
+
+            else:
+                components.append(float(data_text[row_start + j * num_digits : row_start + (j + 1) * num_digits]))
+
+        # components = [float(data_text[row_start + j * num_digits : row_start + (j + 1) * num_digits])
+        #               for j in range(num_components_per_row)]
+
+        x_data.append(components[0])
+        y_data.append(components[1])
+        z_data.append(components[2])
+        print(x_data)
+        print(y_data)
+        print(z_data)
+
+    return x_data, y_data, z_data
+
+
+
+
+def Extract_Vel_Disp():
+    acc_signal = AccSignal(rec, motion_step)
+    acc_signal.generate_displacement_and_velocity_series()
+    bf, sp = plt.subplots(3)
+    sp[0].plot(acc_signal.time, acc_signal.values)
+    sp[1].plot(acc_signal.time, acc_signal.velocity)
+    sp[2].plot(acc_signal.time, acc_signal.displacement)
+    plt.show()
+    return acc_signal.velocity, acc_signal.displacement
+
+
+
+def write_file(accelerations, velocities, displacements):
+    with open('Acceleration.txt', 'w') as f:
+        for velocity in accelerations:
+            f.write(str(velocity))
+            f.write("\n")
+    with open('Velocity.txt', 'w') as f:
+        for velocity in velocities:
+            f.write(str(velocity))
+            f.write("\n")
+    with open('Displacement.txt', 'w') as f:
+        for displacement in displacements:
+            f.write(str(displacement))
+            f.write("\n")
+
+
+print(rec)
+rec = Data_Refinery()
+accelerations = rec
+
+
+
+
+
+
+velocities, displacements = Extract_Vel_Disp()
+write_file(accelerations, velocities, displacements)

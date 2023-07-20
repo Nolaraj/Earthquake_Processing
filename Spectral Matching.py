@@ -1,9 +1,10 @@
-# REQPY MOdule for Spectral Matching
-from REQPY_Module import REQPY_single, load_PEERNGA_record
+import os
+from REQPY_Module import REQPY_single
 import numpy as np
 import matplotlib.pyplot as plt
 
 plt.close('all')
+
 
 def ConstantInterpolation(File, RPath, DesiredInt, OutFile):
     from scipy.interpolate import interp1d
@@ -41,32 +42,78 @@ def ConstantInterpolation(File, RPath, DesiredInt, OutFile):
             f.write("\n")
     return new_x, new_y
 
+def PlotsandWrite(PSA, T, RS_Periods, RS_Sa):
+    def write_file(periods, accelerations):
+        with open(SpectralAccelerationFile, 'w') as f:
+            f.write("Period")
+            f.write("\t")
+            f.write("Sa(g)")
+            f.write("\n")
+            for period, acceleration in zip(periods, accelerations):
+                f.write(str(period))
+                f.write("\t")
+                f.write(str(acceleration))
+                f.write("\n")
 
-DesiredInt = 0.001
-RPath = "Data"
+
+    plt.plot(T, PSA, c='b', label='Matched')
+
+    plt.plot(RS_Periods, RS_Sa, c='r', ls='--', label='Target RS')
+    plt.legend()
+    plt.show()
+
+
+    write_file(T, PSA)
+
+
+
+
+MainFolder = "Data"
+
+#Name the Earthquake and Response spectrum file inside of Main Folder
 File = 'Target Response Spectrum.txt'
-OutFile = "Interpolated.txt"
+seed = 'Input.txt'
+dampratio = 0.05
 
-# General Informations
-seed = 'Input.txt'    # seeed record [g]
-# target   = 'ASCE7.txt'                        # target spectrum (T,PSA)
-dampratio = 0.05                              # damping ratio for spectra
+#Range of Scaling in Periods
 TL1 = 0.05
-TL2 = 6                           # define period range for matching   # (T1=T2=0 matches the whole spectrum)
+TL2 = 6
 
+#Time Step of Earthquake data
 dt = 0.005
-OutputFile = "Ïnterpolated.txt"
 
 
-s = np.loadtxt(os.path.join(os.getcwd(), RPath , seed), skiprows=0, delimiter=",", dtype="float")
-fs   = 1/dt                         # sampling frequency (Hz)
-new_X, new_Y = ConstantInterpolation(File, RPath, DesiredInt, OutFile)
-To =  new_X
-dso = new_Y
-ccs,rms,misfit,cvel,cdespl,PSAccs,PSAs,T,sf = REQPY_single(s,fs,dso,To,
-                                                    T1=TL1,T2=TL2,zi=dampratio,
-                                                    nit=15,NS=100,
-                                                    baseline=1,plots=1)
-# Writer
-headerinfo = 'accelerations in g, dt = ' + str(dt)
-np.savetxt(OutputFile,ccs,header=headerinfo)
+OutputFolder = "Out"
+OutPath = os.path.join(os.getcwd(), MainFolder, OutputFolder)
+if os.path.exists(OutPath) is False:
+    os.makedirs(OutPath)
+
+
+#Interpolation Value for the Response Spectrum (Could be any)
+DesiredInt = 0.001
+InterpolatedFile = os.path.join(os.getcwd(), MainFolder, OutputFolder, "Interpolated.txt")
+ScaledFile = os.path.join(os.getcwd(), MainFolder, OutputFolder, "Scaled.txt")
+SpectralAccelerationFile = os.path.join(os.getcwd(), MainFolder, OutputFolder, "Spectral Acc.txt")
+
+
+
+
+if __name__ == '__main__':
+    s = np.loadtxt(os.path.join(os.getcwd(), MainFolder , seed), skiprows=0, delimiter=",", dtype="float")
+    fs   = 1/dt                         # sampling frequency (Hz)
+    new_X, new_Y = ConstantInterpolation(File, MainFolder, DesiredInt, InterpolatedFile)
+    To =  new_X
+    dso = new_Y
+    ccs,rms,misfit,cvel,cdespl,PSAccs,PSAs,T,sf = REQPY_single(s,fs,dso,To,
+                                                        T1=TL1,T2=TL2,zi=dampratio,
+                                                        nit=3,NS=100,
+                                                        baseline=1,plots=1)
+    plt.show()
+
+
+
+    # Writer
+    headerinfo = 'accelerations in m/s², dt = ' + str(dt)
+    np.savetxt(ScaledFile,ccs*9.81,header=headerinfo)
+
+    PlotsandWrite(PSAccs, T, To, dso)

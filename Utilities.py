@@ -16,3 +16,10 @@ def Data_Refinery(rec):
     dataset = [float(x) for x in dataset]
     dataset = np.array(dataset).astype("float")
     return dataset
+
+
+def write_file(FileName, ValueList):
+    with open(FileName, 'w') as f:
+        for Value in ValueList:
+            f.write(str(Value))
+            f.write("\n")
